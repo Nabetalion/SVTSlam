@@ -2,6 +2,10 @@
 #ifndef _ESTIMATEMAP_H_
 #define _ESTIMATEMAP_H_
 
+#include <opencv2\core.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2\imgproc.hpp>
 #include <Eigen\dense>
 #include <iostream>
 #include <vector>
@@ -22,7 +26,7 @@ public:
 	EstimateMap();
 	~EstimateMap();
 
-	void EstimateLS();	
+	void EstimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, MatrixXd prePose, MatrixXd curPose);
 	void EstimateRLS();	
 	void EstimateNpt();	// Estimate probability of N point for trajectory generation
 

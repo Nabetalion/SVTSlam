@@ -8,7 +8,7 @@ EstimateMap::~EstimateMap(){
 
 }
 
-void EstimateMap::EstimateLS(){
+void EstimateMap::EstimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, MatrixXd prePose, MatrixXd curPose){
 
 }
 

@@ -8,8 +8,13 @@ int main(int argc, char** argv)
 	SVTSlam svtSlam;
 	LoadData loadData;
 
+	// Window
+	cv::namedWindow("CapImage", cv::WINDOW_AUTOSIZE);// Create a window for display.
+	cv::namedWindow("Map", cv::WINDOW_AUTOSIZE);// Create a window for display.
+
 	// Define Variables
 	cv::Mat capImage;
+	cv::Mat traj = cv::Mat::zeros(600, 600, CV_8UC3);
 	static int id = 1;
 	double time;
 
@@ -17,12 +22,14 @@ int main(int argc, char** argv)
 	loadData.selDataSource(KITTI);
 	loadData.loadUniqueData();
 	std::cout << "Camera :" << std::endl << loadData.CameraIntrinsic << std::endl;
+	svtSlam.setCameraIntrinsic(loadData.CameraIntrinsic);
 
 	while(1){
 		std::cout << "Index :" << id << "\t";
 		time = loadData.loadTime();
 		std::cout <<"Time  :" << time << std::endl;
 
+		// ----------------------------------------------------------
 		// Sensor GPS
 		// Load Image
 		if (loadData.loadInputMode() == KITTI){
@@ -48,11 +55,22 @@ int main(int argc, char** argv)
 
 		svtSlam.setGPS(truePos);
 
+		svtSlam.setPose(poseMatrix);	// Temporary code until completing to create state estimation
+
+		// ----------------------------------------------------------
 		// Sparse Visual Tracking SLAM
 		svtSlam.update();
 
+
+		// ----------------------------------------------------------
+		// Draw result
+		int x = int(truePos(0)) + 300;
+		int y = int(truePos(2)) + 100;
+		cv::circle(traj, cv::Point(x, y), 1, CV_RGB(255, 0, 0), 1);
+
 		// DrawImage
 		cv::imshow("CapImage", capImage);
+		cv::imshow("Map", traj);
 		cv::waitKey(1);
 
 		id++;

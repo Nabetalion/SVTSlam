@@ -19,14 +19,18 @@ private:
 	//std::vector<cv::KeyPoint> keypoints;
 
 	cv::Mat preImg;
-	std::vector<cv::Point2f> fpLS,fpRLS,fpEKF;
-	std::vector<cv::Point2f> fpPreLS;
+
 
 	std::vector<uchar> status;
 public:
 	ManageFp();
 	~ManageFp();
 
+	// Fp data
+	std::vector<cv::Point2f> fpLS, fpRLS, fpEKF;
+	std::vector<cv::Point2f> fpPreLS;
+	
+	// functions
 	void detectFp(cv::Mat img);
 	void TrackingAndDetectFp(cv::Mat);
 	void DrawFp(cv::Mat img);
