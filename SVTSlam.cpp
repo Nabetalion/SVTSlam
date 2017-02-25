@@ -70,7 +70,7 @@ void SVTSlam::update(){
 	estimateLS(manageFp.fpPreLS,manageFp.fpLS,this->state,this->state);
 }
 
-void SVTSlam::estimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState){
+void SVTSlam::estimateLS2pt(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState){
 	Matrix3d preRot,curRot;
 
 	// Create Rot Matrix
@@ -100,6 +100,7 @@ void SVTSlam::estimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f
 	MatrixXd NN = MatrixXd::Zero(4, 4);
 	Fp3D computed3Ddata;
 
+	fp3DRLS.clear();
 	for (int i = 0; i < preFp.size(); ++i){
 		ud1 = preFp[i].x - cx;
 		vd1 = preFp[i].y - cy;
@@ -143,7 +144,8 @@ void SVTSlam::estimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f
 	std::cout << fp3DRLS.size() << std::endl;
 }
 
-
+void SVTSlam::estimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState){
+}
 
 // Temporary code until completing to create state estimation
 void SVTSlam::setPose(MatrixXd poseData){
