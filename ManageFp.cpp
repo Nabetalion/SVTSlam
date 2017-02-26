@@ -40,7 +40,7 @@ void ManageFp::detectFp(cv::Mat img){
 
 
 void ManageFp::TrackingAndDetectFp(cv::Mat currImg){
-	std::vector<cv::Point2f> fpPreFilter;
+	std::vector<cv::Point2f> optFrowResult;
 
 	if (preImg.empty()){		// First time
 		preImg = std::move(currImg);
@@ -54,19 +54,23 @@ void ManageFp::TrackingAndDetectFp(cv::Mat currImg){
 			cv::Size winSize = cv::Size(21, 21);
 			cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01);
 
-			cv::calcOpticalFlowPyrLK(preImg, currImg, fpLS, fpPreFilter, status, err);
+			cv::calcOpticalFlowPyrLK(preImg, currImg, fpLS, optFrowResult, status, err);
+
+			// Reverse pose
 
 			// Filter: getting rid of points for which the KLT tracking failed or those who have gone outside the frame
 			int indexCorrection = 0;
 			for (int i = 0; i<status.size(); i++)
 			{
-				cv::Point2f pt = fpPreFilter.at(i - indexCorrection);
+				cv::Point2f pt = optFrowResult.at(i - indexCorrection);
 				if ((status.at(i) == 0) || (pt.x<0) || (pt.y<0) || (pt.x>currImg.cols) || (pt.y>currImg.rows))	{
 					if ((pt.x<0) || (pt.y<0) || (pt.x>currImg.cols) || (pt.y>currImg.rows))	{
 						status.at(i) = 0;
 					}
-					fpPreFilter.erase(fpPreFilter.begin() + (i - indexCorrection));
+					optFrowResult.erase(optFrowResult.begin() + (i - indexCorrection));
 					fpLS.erase(fpLS.begin() + (i - indexCorrection));
+					fp2dHist.erase(fp2dHist.begin() + (i - indexCorrection));
+					
 					indexCorrection++;
 				}
 
@@ -75,9 +79,30 @@ void ManageFp::TrackingAndDetectFp(cv::Mat currImg){
 
 		// Post process
 		fpPreLS = fpLS;
-		fpLS = fpPreFilter;
+		fpLS = optFrowResult;
 
+
+		// Filling up feature points
 		detectFp(currImg);
+
+		// Write down hisotory
+		for (int i = 0; i < fpLS.size(); i++){
+			// Size over is new point
+			if (i >= fp2dHist.size()){
+				fp2dHist.push_back(std::vector<cv::Point2f>(0));
+				fp2dHist.back().push_back(fpLS[i]);
+			}
+			else{		// Have past history
+				fp2dHist[i].push_back(fpLS[i]);
+			}
+		}
+		//std::cout << fpLS.size() << std::endl;
+		/*std::cout << "Hist " << fp2dHist.size() << std::endl;
+		for (int i = 0; i < fp2dHist.size(); i++){
+			std::cout << fp2dHist[i].size() << "\t";
+		}
+		std::cout << std::endl;
+		*/
 
 		preImg = std::move(currImg);
 	}
@@ -101,7 +126,4 @@ void ManageFp::DrawTracking(cv::Mat img){
 			cv::line(img, fpPreLS[i], fpLS[i], cv::Scalar(0, 0, 255));
 		}
 	}
-	//for (int i = 0; i < featuresOptFlowPos.size(); i++){
-	//	cv::circle(img, featuresOptFlowPos[i], 3, cv::Scalar(128, 128, 255));
-	//}
 }

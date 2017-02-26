@@ -7,7 +7,6 @@ project(RecMap)
 SET(SOURCE
  main.cpp
  SVTSlam.cpp
- Database.cpp
  ManageFp.cpp
  LoadData.cpp
  EstimateState.cpp
@@ -16,7 +15,6 @@ SET(SOURCE
 
 SET(HEADERS
  SVTSlam.h
- Database.h
  ManageFp.h
  LoadData.h
  EstimateState.h
@@ -29,7 +27,7 @@ add_executable(RecMap ${SOURCE} ${HEADERS})
 
 
 # OpenCVインストールパスを指定
-set(OpenCV_DIR "C:/dev/opencv-3.0.0/build/")
+set(OpenCV_DIR "C:/dev/opencv-3.1.0contrib/opencv-master/build")
 
 # OpenCVのパッケージを探す
 find_package(OpenCV REQUIRED)

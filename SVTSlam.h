@@ -13,29 +13,20 @@
 
 #include "ManageFP.h"
 #include "EstimateState.h"
-//#include "EstimateMap.h"
+#include "EstimateMap.h"
 
 using namespace Eigen;
 
-enum OriDataMode{
-	EULER,
-	QUATERNION,
-};
+
 
 #define NUMSTATE 3
-#define NUMLSINIT 2	// only 2, history file does not correspont with over 3 (inside estimateLS is OK)
-
 
 typedef struct ImuData{
 	Vector3d imu;
 	Vector3d gyro;
 }ImuData;
 
-typedef struct Fp3D{
-	Vector3d pos;
-	Matrix3d P;
-	int color[3];	// R G B
-}Fp3D;
+
 
 class SVTSlam{
 private:
@@ -43,10 +34,6 @@ private:
 	ManageFp manageFp;
 	EstimateState estimateState;
 	//EstimateMap estimateMap;
-
-	// Camera intransic
-	MatrixXd cameraIntrinsic;
-	double fx, fy, cx, cy;
 
 	// Define Mode(Euler / Quaternion)
 	int oriDataMode;
@@ -59,8 +46,8 @@ private:
 	ImuData imuData;
 	VectorXd gpsData;
 
-	void estimateLS2pt(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
-	void estimateLS(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
+	void estimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
+	void estimateLSm(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
 	//void EstimateRLS();
 	//void EstimateNpt();	// Estimate probability of N point for trajectory generation
 	
@@ -68,15 +55,7 @@ public:
 	SVTSlam();
 	~SVTSlam();
 
-	// Map Data
-	std::vector<std::vector<cv::Point2f>> fp3DInit;	// 2D feature point for Initial Estimation
-	std::vector<Fp3D> fp3DRLS;		// 3D feature point during Recursive Least Square
-	std::vector<cv::Mat> fpProbRLS;	// Probability matrix of feature point during Recursive Least Square
-	std::vector<Fp3D> fp3DEKF;		// 3D feature point during Recursive Least Square
-	std::vector<cv::Mat> fpProbEKF;	// Probability matrix of feature point during EKF
-	std::vector<Fp3D> fp3DFix;		// 3D feature point during EKF
-	std::vector<cv::Mat> fpProbFix;	// Probability matrix of feature point after EKF
-	std::vector<VectorXd> posHist;	// Vehicle position History
+	EstimateMap estimateMap;
 
 	// Functions
 	void setCameraIntrinsic(MatrixXd);

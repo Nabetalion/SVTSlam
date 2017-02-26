@@ -11,7 +11,7 @@
 
 #define TRACKINGTHRESHHOLD 50
 
-#define MAXMANAGEDFP 200
+#define MAXMANAGEDFP 100
 
 class ManageFp{
 private:
@@ -29,7 +29,8 @@ public:
 	// Fp data
 	std::vector<cv::Point2f> fpLS, fpRLS, fpEKF;
 	std::vector<cv::Point2f> fpPreLS;
-	
+	std::vector<std::vector<cv::Point2f>> fp2dHist;	// 2D feature point History
+
 	// functions
 	void detectFp(cv::Mat img);
 	void TrackingAndDetectFp(cv::Mat);
