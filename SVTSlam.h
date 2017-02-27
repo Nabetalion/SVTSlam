@@ -19,12 +19,7 @@ using namespace Eigen;
 
 
 
-#define NUMSTATE 3
-
-typedef struct ImuData{
-	Vector3d imu;
-	Vector3d gyro;
-}ImuData;
+#define NUMSTATE 9	// x,y,z, phi,th,psi, u,v,w (,bias a x3 ,bias w x3)
 
 
 
@@ -35,27 +30,24 @@ private:
 	EstimateState estimateState;
 	//EstimateMap estimateMap;
 
-	// Define Mode(Euler / Quaternion)
-	int oriDataMode;
-
-	// Define State
-	VectorXd state;
-
 	// Sensor Data
 	cv::Mat image;
 	ImuData imuData;
 	VectorXd gpsData;
 
-	void estimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
-	void estimateLSm(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
+	//void estimateLSm(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState);
 	//void EstimateRLS();
 	//void EstimateNpt();	// Estimate probability of N point for trajectory generation
-	
+
+
 public:
 	SVTSlam();
 	~SVTSlam();
 
 	EstimateMap estimateMap;
+
+	// Variables
+	VectorXd state;
 
 	// Functions
 	void setCameraIntrinsic(MatrixXd);
@@ -63,7 +55,6 @@ public:
 	void setIMU(ImuData);
 	void setGPS(VectorXd);
 	void update();
-
 
 	// tempcode
 	MatrixXd pose;

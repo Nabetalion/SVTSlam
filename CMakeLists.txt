@@ -11,6 +11,8 @@ SET(SOURCE
  LoadData.cpp
  EstimateState.cpp
  EstimateMap.cpp
+ Simulate.cpp
+ Utility.cpp
 )
 
 SET(HEADERS
@@ -19,6 +21,8 @@ SET(HEADERS
  LoadData.h
  EstimateState.h
  EstimateMap.h
+ Simulate.h
+ Utility.h
 )
 
 # 実行ファイル名とソース指定

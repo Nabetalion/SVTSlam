@@ -2,9 +2,7 @@
 #include "SVTSlam.h"
 
 SVTSlam::SVTSlam(){
-	oriDataMode = EULER;
-
-	switch (oriDataMode){
+	switch (estimateState.getOriMode()){
 	case EULER:
 		state = VectorXd(9);	// pos,ori,vel
 		break;
@@ -13,6 +11,7 @@ SVTSlam::SVTSlam(){
 	default:
 		break;
 	}
+
 #ifdef WITH_VIZ
 	estimateMap.initMapWindow();
 #endif
@@ -49,51 +48,40 @@ void SVTSlam::update(){
 
 	//
 	manageFp.TrackingAndDetectFp(image);
-	manageFp.DrawFp(image);
-	manageFp.DrawTracking(image);
 
 	// 5 pt
 
 	// Estimate State
-	//estimateState.estimate();
-	this->state(0) = this->gpsData(0);
-	this->state(1) = this->gpsData(1);
-	this->state(2) = this->gpsData(2);
-	this->state(3) = this->attitude(0);
-	this->state(4) = this->attitude(1);
-	this->state(5) = this->attitude(2);
+	//estimateState.propagate();
+	estimateState.setGps(this->gpsData);
+	estimateState.setAttitude(this->attitude);
+	estimateState.update();
+
 	//std::cout << state << std::endl;
 
-	/*static std::vector<std::vector<cv::Point2f>> test;
-	test.push_back(std::vector<cv::Point2f>(0));
-	std::cout << test.size() << std::endl;
-	std::cout << test.back().size() << std::endl;
-	test.back().push_back(1);
-	test.back().push_back(2);
-	test.back().push_back(3);
-	test.back().push_back(4);
-	std::cout << test.size() << std::endl;
-	std::cout << test[0].size() << std::endl;
-	if (test.size() > 10){
-		std::cout << test[0][0] << std::endl;
-	}*/
 
 	// Estimate map
+	// Preliminary of Estimate map
 	estimateMap.setfp2dHistPointer(&(manageFp.fp2dHist));	// Set the pointer of 2d tracking history 
 	estimateMap.decideFpState();							// to make estimation smooth, compute fp state in advance
+	// Estimate
 	//estimateLS2(manageFp.fpPreLS,manageFp.fpLS,this->state,this->state);
+
+	// Copy State of Vehicle
+	this->state = estimateState.state;
+	//std::cout << estimateState.state << "\n" << state << std::endl;
+
+	// Draw Result
+	manageFp.DrawFp(image);
+	manageFp.DrawTracking(image);
 
 #ifdef WITH_VIZ
 	estimateMap.drawMap();
 #endif
 }
 
-void SVTSlam::estimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState){
 
-}
 
-void SVTSlam::estimateLSm(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd preState, VectorXd curState){
-}
 
 // Temporary code until completing to create state estimation
 void SVTSlam::setPose(MatrixXd poseData){

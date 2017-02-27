@@ -15,6 +15,8 @@
 #include <opencv2\viz\vizcore.hpp>
 #endif
 
+#include "EstimateState.h"
+
 using namespace Eigen;
 
 #define NUMLSINIT 5	// only 2, history file does not correspont with over 3 (inside estimateLS is OK)
@@ -27,10 +29,10 @@ enum FpState{
 };
 
 
-enum OriDataMode{
-	EULER,
-	QUATERNION,
-};
+//enum OriDataMode{
+//	EULER,
+//	QUATERNION,
+//};
 
 typedef struct Fp3D{
 	Vector3d pos;
