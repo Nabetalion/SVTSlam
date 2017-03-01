@@ -105,6 +105,7 @@ void Simulate::emulateIMU(int inputMode){
 				v_nm = (pos_n - pos_nm) / dt_nm;
 			}
 			v_n = (pos_np - pos_n) / dt_n;
+			vel.push_back(v_n);
 			//std::cout << v_n<< std::endl<<v_nm << std::endl;
 
 			// Acc
@@ -121,7 +122,7 @@ void Simulate::emulateIMU(int inputMode){
 			double phi, th, psi;
 			if (n == 0){
 				dOri = ori[n] - ori[n];
-				dOri = eulerInRange(dOri);
+				dOri = eulerDiffInRange(dOri);
 				dt = time[n] - time[n];
 				phi = ori[n][0];
 				th  = ori[n][1];
@@ -129,19 +130,50 @@ void Simulate::emulateIMU(int inputMode){
 			}
 			else{
 				dOri = ori[n] - ori[n-1];
-				dOri = eulerInRange(dOri);
+				dOri = eulerDiffInRange(dOri);
 				dt = time[n] - time[n - 1];
-				phi = ori[n-1][0];
-				th = ori[n - 1][1];
+				phi = ori[n - 1][0];
+				th  = ori[n - 1][1];
 				psi = ori[n - 1][2];
+
+				std::cout << ori[n - 1] << std::endl;
+				std::cout << ori[n] << std::endl;
+				std::cout << dOri << std::endl;
+				//std::cout << std::endl;
 			}
 			Matrix3d L;
+			// https://www.princeton.edu/~stengel/MAE331Lecture9.pdf
 			L << 1, 0, -sin(th),
 				0,  cos(phi), sin(phi) * cos(th),
 				0, -sin(phi), cos(phi) * cos(th);
-			std::cout << L*dOri / dt << std::endl;
-			//std::cout << std::endl;
+			//std::cout << L*dOri / dt << std::endl;
 			avel_B.push_back(L*dOri / dt);
+
+			/////////////////////////////////////////////////
+			if (n < 3){
+				simOri.push_back(ori[n]);
+			}
+			else{
+				Matrix3d L1,L2;
+				L1 << 1, 0, -sin(th),
+					0, cos(phi), sin(phi) * cos(th),
+					0, -sin(phi), cos(phi) * cos(th);
+				L2 << 1, sin(phi)*tan(th), cos(phi)*tan(th),
+					0, cos(phi), -sin(phi),
+					0, -sin(phi)/tan(th),cos(phi) / tan(th);
+				dt = time[n] - time[n - 1];
+
+				//std::cout << L1 << std::endl;
+				//std::cout << L1.inverse() << std::endl;
+				//std::cout << L2 << std::endl;
+
+				simOri.push_back(simOri[n - 1] + (L1.inverse())*avel_B[n]*dt);
+			}
+
+			std::cout << ori[n] << std::endl;
+			std::cout << simOri[n] << std::endl;
+			std::cout << std::endl;
+			
 		}
 	}
 
@@ -149,25 +181,48 @@ void Simulate::emulateIMU(int inputMode){
 }
 
 void Simulate::simulateForCK(){
+	simPos.push_back(pos[0]);
+	simPos.push_back(pos[1]);
+	simPos.push_back(pos[2]);
+	simVel.push_back(vel[0]);
+	simVel.push_back(vel[1]);
+	simVel.push_back(vel[2]);
+
 	simOri.push_back(ori[0]);
 	simOri.push_back(ori[1]);
 	simOri.push_back(ori[2]);
 
 	for (int n = 3; n < MAX_DATA; n++){
+		//std::cout <<"n:"<< n << std::endl;
+		double dt = time[n] - time[n - 1];
+
+		// simulate pos and velocity
+		simPos.push_back(simPos.back() + simVel.back()*dt);
+		simVel.push_back(simVel.back() + acc_I[n]*dt);
+
+		// Simulate angle
 		double phi = simOri.back()[0], th = simOri.back()[1], psi = simOri.back()[2];
 		Matrix3d L;
-		L << 1, sin(phi)*tan(th), cos(phi)*tan(th),
-			0, cos(phi), -sin(phi),
-			0, sin(phi) / cos(th), sin(phi) / cos(th);
-		Vector3d dOri = L*avel_B[n - 1];
-		double dt = time[n] - time[n - 1];
-		simOri.push_back(simOri.back() + dOri*dt);
+		// Note: the matrix analytically computed is unstable, because tan(th) is in denominator.
+		L << 1, 0, -sin(th),
+			0, cos(phi), sin(phi) * cos(th),
+			0, -sin(phi), cos(phi) * cos(th);
+		//std::cout << L.determinant() << std::endl;
+		Vector3d dOri = L.inverse()*avel_B[n];
+		Vector3d simOriData = simOri.back() + dOri*dt;
+		//Vector3d simOriDataInRange = eulerInRange(simOriData);
+		simOri.push_back(simOriData);
+
+		// For check
+		//std::cout << pos[n] << std::endl;
+		//std::cout << simPos[n] << std::endl;
+		//std::cout << vel[n] << std::endl;
+		//std::cout << simVel[n] << std::endl;
+		//std::cout << avel_B[n] << std::endl;
+		//std::cout << ori[n] << std::endl;
+		//std::cout << simOri[n] << std::endl;
+		//std::cout << std::endl;
 	}
 
-	for (int n = 0; n < MAX_DATA; n++){
-		std::cout << ori[n] << std::endl;
-		std::cout << simOri[n] << std::endl;
-		std::cout  << std::endl;
-	}
 
 }

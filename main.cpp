@@ -20,8 +20,9 @@ int main(int argc, char** argv)
 	Simulate simulate;
 
 	// Create IMU Data
-	simulate.emulateIMU(KITTI);
-	simulate.simulateForCK();
+	//simulate.emulateIMU(KITTI);
+	//simulate.simulateForCK();
+	//return 0;
 
 	// Window
 	cv::namedWindow("CapImage", cv::WINDOW_AUTOSIZE);// Create a window for display.
@@ -38,8 +39,6 @@ int main(int argc, char** argv)
 	loadData.loadUniqueData();
 	std::cout << "Camera :" << std::endl << loadData.CameraIntrinsic << std::endl;
 	svtSlam.setCameraIntrinsic(loadData.CameraIntrinsic);
-
-	return 0;
 
 	while(1){
 		std::cout << "Index :" << id << "\t";
@@ -87,8 +86,10 @@ int main(int argc, char** argv)
 			cv::circle(traj, cv::Point(x, y), 1, CV_RGB(255, 0, 0), 1);
 		}
 		{
-			int x = int(svtSlam.state(0)) + 300;
-			int y = int(svtSlam.state(2)) + 100;
+			//int x = int(svtSlam.state(0)) + 300;
+			//int y = int(svtSlam.state(2)) + 100;
+			int x = int(svtSlam.estimateState.pos(0)) + 300;
+			int y = int(svtSlam.estimateState.pos(2)) + 100;
 			cv::circle(traj, cv::Point(x, y), 1, CV_RGB(0, 0, 255), 1);
 			std::cout << x << "\t" << y << std::endl;
 		}

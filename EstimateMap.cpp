@@ -2,7 +2,10 @@
 #include "EstimateMap.h"
 
 EstimateMap::EstimateMap(){
-	oriDataMode = EULER;
+	oriDataMode = MAPORI_EULER;
+
+	R_5pt = Matrix3d::Identity(3,3);
+	t_5pt = Vector3d::Zero(3);
 }
 
 EstimateMap::~EstimateMap(){
@@ -15,18 +18,150 @@ MatrixXd EstimateMap::createRotationMatrix(VectorXd state){
 
 	// Create Rot Matrix
 	switch (oriDataMode){
-	case EULER:
+	case MAPORI_EULER:
 		rot = AngleAxisd(state(3), Vector3d::UnitX())
 			* AngleAxisd(state(4), Vector3d::UnitY())
 			* AngleAxisd(state(5), Vector3d::UnitZ());
 		break;
-	case QUATERNION:
+	case MAPORI_QUATERNION:
 	default:
 		// Under construction
 		break;
 	}
 
 	return rot;
+}
+
+// http://ishidate.my.coocan.jp/opencv310_10/opencv310_10.htm
+void EstimateMap::detectFp(cv::Mat img){
+	std::vector<cv::Point2f> newFp;
+	int numDetectFp = MAXMANAGEDFP - (fpLS.size() + fpRLS.size() + fpEKF.size());
+
+
+	if (numDetectFp < 1){
+
+	}
+	else{
+		cv::Mat grayImg;
+		cvtColor(img, grayImg, cv::COLOR_BGR2GRAY);
+
+#ifdef GOOD_FEATURE
+		goodFeaturesToTrack(grayImg, newFp, MAXDETECTFP, 0.0001, 30);
+		/// Set the neeed parameters to find the refined corners
+		cv::Size winSize = cv::Size(5, 5);
+		cv::Size zeroZone = cv::Size(-1, -1);
+		cv::TermCriteria criteria = cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 40, 0.001);
+		cornerSubPix(grayImg, newFp, winSize, zeroZone, criteria);
+
+		int rndIdx;
+		for (int i = 0; i < numDetectFp; i++){
+			rndIdx = rand() % newFp.size();
+			fpLS.push_back(newFp[rndIdx]);
+		}
+#endif
+	}
+	/*
+	int fast_threshold = 20;
+	bool nonmaxSuppression = true;
+	//#if OPENCV24X
+	std::vector<cv::KeyPoint> points;
+	//#endif
+	cv::Mat grayImg;
+	cvtColor(img, grayImg, cv::COLOR_BGR2GRAY);
+	//cv::FAST(grayImg, points, fast_threshold, nonmaxSuppression);
+	cv::AGAST(grayImg, points, fast_threshold, nonmaxSuppression);
+	cv::KeyPoint::convert(points, fpLS2);
+	*/
+}
+
+void EstimateMap::TrackingAndDetectFp(cv::Mat currImg){
+	std::vector<cv::Point2f> optFrowResult;
+
+	if (preImg.empty()){		// First time
+		preImg = std::move(currImg);
+	}
+	else{
+		if (fpLS.size() + fpRLS.size() == 0){
+			// No tracking
+		}
+		else{
+			std::vector<float> err;
+			cv::Size winSize = cv::Size(21, 21);
+			cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01);
+
+			cv::calcOpticalFlowPyrLK(preImg, currImg, fpLS, optFrowResult, optflowStatus, err);
+
+			// Reverse pose
+			cv::Mat R, t;
+			cv::Mat mask;
+			cv::Mat essentialMat;
+			essentialMat = cv::findEssentialMat(optFrowResult, fpLS, focal, pp, cv::RANSAC, 0.999, 1.0, mask);
+			recoverPose(essentialMat, optFrowResult, fpLS, R, t, focal, pp, mask);
+
+			// Convert cv::Mat to Eigen
+			for (int i = 0; i < 3; i++){
+				for (int j = 0; j < 3; j++){
+					R_5pt(i, j) = R.at<double>(i, j);
+				}
+			}
+			for (int i = 0; i < 3; i++){
+				t_5pt(i) = t.at<double>(i);
+			}
+			//std::cout << "5Pt result" << std::endl;
+			//std::cout << R_5pt << std::endl;
+			//std::cout << t_5pt << std::endl;
+
+			// Filter: getting rid of points for which the KLT tracking failed or those who have gone outside the frame
+			int indexCorrection = 0;
+			for (int i = 0; i<optflowStatus.size(); i++)
+			{
+				cv::Point2f pt = optFrowResult.at(i - indexCorrection);
+				if ((optflowStatus.at(i) == 0) || (pt.x<0) || (pt.y<0) || (pt.x>currImg.cols) || (pt.y>currImg.rows))	{
+					if ((pt.x<0) || (pt.y<0) || (pt.x>currImg.cols) || (pt.y>currImg.rows))	{
+						optflowStatus.at(i) = 0;
+					}
+					optFrowResult.erase(optFrowResult.begin() + (i - indexCorrection));
+					fpLS.erase(fpLS.begin() + (i - indexCorrection));
+					fp2dHist.erase(fp2dHist.begin() + (i - indexCorrection));
+
+					indexCorrection++;
+				}
+
+			}
+
+		}
+
+		// Post process
+		fpPreLS = fpLS;
+		fpLS = optFrowResult;
+
+
+		// Filling up feature points
+		detectFp(currImg);
+
+		std::cout << "-----------------------------" << std::endl;
+
+		// Write down hisotory
+		for (int i = 0; i < fpLS.size(); i++){
+			// Size over is new point
+			if (i >= fp2dHist.size()){
+				fp2dHist.push_back(std::vector<cv::Point2f>(0));
+				fp2dHist.back().push_back(fpLS[i]);
+			}
+			else{		// Have past history
+				fp2dHist[i].push_back(fpLS[i]);
+			}
+		}
+		//std::cout << fpLS.size() << std::endl;
+		/*std::cout << "Hist " << fp2dHist.size() << std::endl;
+		for (int i = 0; i < fp2dHist.size(); i++){
+		std::cout << fp2dHist[i].size() << "\t";
+		}
+		std::cout << std::endl;
+		*/
+
+		preImg = std::move(currImg);
+	}
 }
 
 void EstimateMap::EstimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp,
@@ -140,30 +275,22 @@ void EstimateMap::setCameraIntrinsic(MatrixXd receivedData){
 	fy = cameraIntrinsic(1, 1);
 	cx = cameraIntrinsic(0, 2);
 	cy = cameraIntrinsic(1, 2);
+
+	focal = 718.8560;
+	pp = cv::Point2d(607.1928, 185.2157);
 }
 
 
-void EstimateMap::setfp2dHistPointer(std::vector<std::vector<cv::Point2f>> *manageFpHist){
-	this->fp2dHist = manageFpHist;
-
-	// For check
-	/*std::cout << "Hist " << fp2dHist->size() << std::endl;
-	for (int i = 0; i < fp2dHist->size(); i++){
-		std::cout << (*fp2dHist)[i].size() << "\t";
-	}
-	std::cout << std::endl;
-	*/
-}
 void EstimateMap::decideFpState(){
 	fpState.clear();
-	for (int i = 0; i < fp2dHist->size(); i++){
-		if ((*fp2dHist)[i].size()<NUMLSINIT){
+	for (int i = 0; i < fp2dHist.size(); i++){
+		if (fp2dHist[i].size()<NUMLSINIT){
 			fpState.push_back(INIT);
 		}
-		else if ((*fp2dHist)[i].size()<NUMLSINIT + 1){
+		else if (fp2dHist[i].size()<NUMLSINIT + 1){
 			fpState.push_back(RLS);
 		}
-		else if ((*fp2dHist)[i].size()>=NUMLSINIT + 1){
+		else if (fp2dHist[i].size()>=NUMLSINIT + 1){
 			fpState.push_back(EKF);
 		}
 		else{
@@ -177,6 +304,26 @@ void EstimateMap::decideFpState(){
 	std::cout << std::endl;
 	*/
 }
+
+void EstimateMap::DrawFp(cv::Mat img){
+	int radius = cvRound(5);
+
+	for (int i = 0; i < fpLS.size(); i++){
+		cv::circle(img, fpLS[i], radius, cv::Scalar(255, 0, 255));
+	}
+	//cv::drawKeypoints(img, fpLS2, img, cv::Scalar(0, 0, 255));
+}
+
+
+
+void EstimateMap::DrawTracking(cv::Mat img){
+	for (size_t i = 0; i<fpPreLS.size(); i++){
+		if (optflowStatus[i]){
+			cv::line(img, fpPreLS[i], fpLS[i], cv::Scalar(0, 0, 255));
+		}
+	}
+}
+
 
 #ifdef WITH_VIZ
 void EstimateMap::initMapWindow(){

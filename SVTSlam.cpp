@@ -46,15 +46,16 @@ void SVTSlam::update(){
 	// Tracking
 	//manageFp.Tracking(image);
 
-	//
-	manageFp.TrackingAndDetectFp(image);
+	// Fp detection and 5 pt
+	estimateMap.TrackingAndDetectFp(image);
 
-	// 5 pt
 
 	// Estimate State
+	estimateState.setImu(this->imuData);
 	//estimateState.propagate();
 	estimateState.setGps(this->gpsData);
 	estimateState.setAttitude(this->attitude);
+	estimateState.setExtransic(estimateMap.R_5pt, estimateMap.t_5pt);
 	estimateState.update();
 
 	//std::cout << state << std::endl;
@@ -62,7 +63,7 @@ void SVTSlam::update(){
 
 	// Estimate map
 	// Preliminary of Estimate map
-	estimateMap.setfp2dHistPointer(&(manageFp.fp2dHist));	// Set the pointer of 2d tracking history 
+	//estimateMap.setfp2dHistPointer(&(manageFp.fp2dHist));	// Set the pointer of 2d tracking history 
 	estimateMap.decideFpState();							// to make estimation smooth, compute fp state in advance
 	// Estimate
 	//estimateLS2(manageFp.fpPreLS,manageFp.fpLS,this->state,this->state);
@@ -72,8 +73,8 @@ void SVTSlam::update(){
 	//std::cout << estimateState.state << "\n" << state << std::endl;
 
 	// Draw Result
-	manageFp.DrawFp(image);
-	manageFp.DrawTracking(image);
+	estimateMap.DrawFp(image);
+	estimateMap.DrawTracking(image);
 
 #ifdef WITH_VIZ
 	estimateMap.drawMap();

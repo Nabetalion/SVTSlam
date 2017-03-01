@@ -11,7 +11,7 @@
 #include "Eigen\Dense"
 //#include "Eigen\geometory"
 
-#include "ManageFP.h"
+//#include "ManageFP.h"
 #include "EstimateState.h"
 #include "EstimateMap.h"
 
@@ -25,11 +25,6 @@ using namespace Eigen;
 
 class SVTSlam{
 private:
-	// Define Class
-	ManageFp manageFp;
-	EstimateState estimateState;
-	//EstimateMap estimateMap;
-
 	// Sensor Data
 	cv::Mat image;
 	ImuData imuData;
@@ -44,6 +39,7 @@ public:
 	SVTSlam();
 	~SVTSlam();
 
+	EstimateState estimateState;
 	EstimateMap estimateMap;
 
 	// Variables

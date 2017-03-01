@@ -7,7 +7,6 @@ project(RecMap)
 SET(SOURCE
  main.cpp
  SVTSlam.cpp
- ManageFp.cpp
  LoadData.cpp
  EstimateState.cpp
  EstimateMap.cpp
@@ -17,7 +16,6 @@ SET(SOURCE
 
 SET(HEADERS
  SVTSlam.h
- ManageFp.h
  LoadData.h
  EstimateState.h
  EstimateMap.h

@@ -8,6 +8,7 @@
 
 using namespace Eigen;
 
+Vector3d eulerDiffInRange(Vector3d euler);
 Vector3d eulerInRange(Vector3d euler);
 
 #endif

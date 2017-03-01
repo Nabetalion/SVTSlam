@@ -8,7 +8,7 @@
 #include <Eigen/Dense>
 
 //#define MAX_DATA 40000
-#define MAX_DATA 10
+#define MAX_DATA 64
 
 using namespace Eigen;
 
@@ -16,6 +16,7 @@ class Simulate{
 private:
 	std::vector<VectorXd> pos;	// position w.r.t. inertia frame
 	std::vector<Vector3d> ori;	// Euler angle w.r.t. inertia frame
+	std::vector<Vector3d> vel;	// Euler angle w.r.t. inertia frame
 	std::vector<double> time;
 
 	std::vector<VectorXd> acc_I;
