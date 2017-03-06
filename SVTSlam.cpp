@@ -38,7 +38,7 @@ void SVTSlam::setGPS(VectorXd receivedGPSData){
 }
 
 
-void SVTSlam::update(){
+void SVTSlam::update(double time){
 	// Extract Feature Point
 	//manageFp.detectFp(image);	// Detect
 	//manageFp.DrawFp(image);		// Draw FP
@@ -63,8 +63,14 @@ void SVTSlam::update(){
 
 	// Estimate map
 	// Preliminary of Estimate map
-	//estimateMap.setfp2dHistPointer(&(manageFp.fp2dHist));	// Set the pointer of 2d tracking history 
-	estimateMap.decideFpState();							// to make estimation smooth, compute fp state in advance
+	Vector3d pos;
+	Matrix3d rot;
+	rot << 1, 0, 0,
+		0, 1, 0,
+		0, 0, 1;
+	Quaterniond quat(rot);
+	//std::cout << "---------------------" << std::endl;
+	estimateMap.estimateFpState(pos, quat,time);							// to make estimation smooth, compute fp state in advance
 	// Estimate
 	//estimateLS2(manageFp.fpPreLS,manageFp.fpLS,this->state,this->state);
 

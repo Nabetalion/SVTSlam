@@ -52,26 +52,53 @@ void EstimateMap::detectFp(cv::Mat img){
 		cv::Size zeroZone = cv::Size(-1, -1);
 		cv::TermCriteria criteria = cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 40, 0.001);
 		cornerSubPix(grayImg, newFp, winSize, zeroZone, criteria);
-
+#else
+		int fast_threshold = 20;
+		bool nonmaxSuppression = true;
+		std::vector<cv::KeyPoint> points;
+		//cv::FAST(grayImg, points, fast_threshold, nonmaxSuppression);
+		cv::AGAST(grayImg, points, fast_threshold, nonmaxSuppression);
+		cv::KeyPoint::convert(points, newFp);
+#endif
 		int rndIdx;
 		for (int i = 0; i < numDetectFp; i++){
 			rndIdx = rand() % newFp.size();
 			fpLS.push_back(newFp[rndIdx]);
 		}
-#endif
 	}
-	/*
-	int fast_threshold = 20;
-	bool nonmaxSuppression = true;
-	//#if OPENCV24X
-	std::vector<cv::KeyPoint> points;
-	//#endif
-	cv::Mat grayImg;
-	cvtColor(img, grayImg, cv::COLOR_BGR2GRAY);
-	//cv::FAST(grayImg, points, fast_threshold, nonmaxSuppression);
-	cv::AGAST(grayImg, points, fast_threshold, nonmaxSuppression);
-	cv::KeyPoint::convert(points, fpLS2);
-	*/
+}
+
+//オプティカルフローを可視化する。
+//縦横のベクトルの強さを色に変換する。
+//左：赤、右：緑、上：青、下：黄色
+void visualizeFarnebackFlow(
+	const cv::Mat& flow,    //オプティカルフロー CV_32FC2
+	cv::Mat& visual_flow    //可視化された画像 CV_32FC3
+	)
+{
+	visual_flow = cv::Mat::zeros(flow.rows, flow.cols, CV_32FC3);
+	int flow_ch = flow.channels();
+	int vis_ch = visual_flow.channels();//3のはず
+	for (int y = 0; y < flow.rows; y++) {
+		float* psrc = (float*)(flow.data + flow.step * y);
+		float* pdst = (float*)(visual_flow.data + visual_flow.step * y);
+		for (int x = 0; x < flow.cols; x++) {
+			float dx = psrc[0];
+			float dy = psrc[1];
+			float r = (dx < 0.0) ? abs(dx) : 0;
+			float g = (dx > 0.0) ? dx : 0;
+			float b = (dy < 0.0) ? abs(dy) : 0;
+			r += (dy > 0.0) ? dy : 0;
+			g += (dy > 0.0) ? dy : 0;
+
+			pdst[0] = b;
+			pdst[1] = g;
+			pdst[2] = r;
+
+			psrc += flow_ch;
+			pdst += vis_ch;
+		}
+	}
 }
 
 void EstimateMap::TrackingAndDetectFp(cv::Mat currImg){
@@ -89,7 +116,39 @@ void EstimateMap::TrackingAndDetectFp(cv::Mat currImg){
 			cv::Size winSize = cv::Size(21, 21);
 			cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01);
 
+			// Sparse optical flow by LK
 			cv::calcOpticalFlowPyrLK(preImg, currImg, fpLS, optFrowResult, optflowStatus, err);
+
+#ifdef DENSE_OPTFLOW
+			// Dense optical flow by Farnback
+			cv::Mat grayPreImg, grayCurrImg;
+			cvtColor(preImg, grayPreImg, cv::COLOR_BGR2GRAY);
+			cvtColor(currImg, grayCurrImg, cv::COLOR_BGR2GRAY);
+			cv::calcOpticalFlowFarneback(grayPreImg, grayCurrImg, optfImg, 0.8, 10, 5, 3, 7, 1.5, 0);
+			fpLS2.clear();
+			for (int i = 0; i<fpLS.size(); ++i){
+				float fpLSx = fpLS[i].x, fpLSy = fpLS[i].y;
+				if (fpLS[i].x < 0){
+					fpLSx = 0.0;
+				}
+				else if (fpLS[i].x>currImg.cols){
+					fpLSx = currImg.cols-1.0;
+				}
+				if (fpLS[i].y < 0){
+					fpLSy = 0.0;
+				}
+				else if (fpLS[i].x>currImg.rows){
+					fpLSy = currImg.rows - 1.0;
+				}
+				//std::cout << "fppos:\t"<< fpLSx << "\t" << fpLSy << std::endl;
+				//std::cout << optfImg.size() << std::endl;
+
+				cv::Point2f newPtFB = { fpLS[i].x + optfImg.at<cv::Point2f>(fpLSy, fpLSx).x,
+					fpLS[i].y + optfImg.at<cv::Point2f>(fpLSy, fpLSx).y };
+				fpLS2.push_back(newPtFB);
+			}
+#endif
+
 
 			// Reverse pose
 			cv::Mat R, t;
@@ -123,7 +182,9 @@ void EstimateMap::TrackingAndDetectFp(cv::Mat currImg){
 					optFrowResult.erase(optFrowResult.begin() + (i - indexCorrection));
 					fpLS.erase(fpLS.begin() + (i - indexCorrection));
 					fp2dHist.erase(fp2dHist.begin() + (i - indexCorrection));
-
+#ifdef DENSE_OPTFLOW
+					fpLS2.erase(fpLS2.begin() + (i - indexCorrection));
+#endif
 					indexCorrection++;
 				}
 
@@ -139,7 +200,7 @@ void EstimateMap::TrackingAndDetectFp(cv::Mat currImg){
 		// Filling up feature points
 		detectFp(currImg);
 
-		std::cout << "-----------------------------" << std::endl;
+		//std::cout << "-----------------------------" << std::endl;
 
 		// Write down hisotory
 		for (int i = 0; i < fpLS.size(); i++){
@@ -222,7 +283,7 @@ void EstimateMap::EstimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Po
 	}
 	std::cout << fp3DRLS.size() << std::endl;
 }
-void EstimateMap::EstimateLSm(std::vector<std::vector<cv::Point2f>> fp2DInit, std::vector<VectorXd> stateHist){
+void EstimateMap::EstimateLSm(std::vector<cv::Point2f> fp2DPtHist, std::vector<VectorXd> stateHist){
 	MatrixXd rot[NUMLSINIT];	// 0 is current and data is back to state with order i.
 	VectorXd pos[NUMLSINIT];	// 0 is current and data is back to state with order i.
 	VectorXd tc[NUMLSINIT];	// trans vector in camera frame. 0 is current and data is back to state with order i.
@@ -242,14 +303,79 @@ void EstimateMap::EstimateLSm(std::vector<std::vector<cv::Point2f>> fp2DInit, st
 	double ud[NUMLSINIT], vd[NUMLSINIT];
 	Fp3D computed3Ddata;
 
-	for (int i = 0; i < fp2DInit.size(); i++){
-		if (fp2DInit[i].size() >= NUMLSINIT){
-
-
-		}
+	for (int i = 0; i < fp2DPtHist.size(); i++){
+		//if (fp2DInit[i].size() >= NUMLSINIT){
+		ud[i] = fp2DPtHist[i].x - cx;
+		vd[i] = fp2DPtHist[i].y - cy;
+			/*
+			B(0) = preT(0)*fx - preT(2)*ud1;
+			A(0, 0) = preRot(0, 0)*fx - preRot(2, 0)*ud1;
+			A(0, 1) = preRot(0, 1)*fx - preRot(2, 1)*ud1;
+			A(0, 2) = preRot(0, 2)*fx - preRot(2, 2)*ud1;
+			B(1) = preT(1)*fy - preT(2)*vd1;
+			A(1, 0) = preRot(1, 0)*fy - preRot(2, 0)*vd1;
+			A(1, 1) = preRot(1, 1)*fy - preRot(2, 1)*vd1;
+			A(1, 2) = preRot(1, 2)*fy - preRot(2, 2)*vd1;
+			*/
+		//}
 	}
 
 }
+
+void EstimateMap::estimateFpState(Vector3d pos, Quaterniond quat,double time){
+	// Convert quat to DCM
+	// http://stackoverflow.com/questions/21761909/eigen-convert-matrix3d-rotation-to-quaternion?rq=1
+	// http://stackoverflow.com/questions/31589901/euler-to-quaternion-quaternion-to-euler-using-eigen
+	// Note: if you update quatanion, you must normalize it
+	Matrix3d rot = quat.toRotationMatrix();
+	Vector3d euler = quat.toRotationMatrix().eulerAngles(2, 1, 0);
+	//std::cout << rot << std::endl;
+	//std::cout << euler << std::endl;
+
+	// Update State History
+	CamState camStateTemp;
+	camStateTemp.pos = pos;
+	camStateTemp.quat = quat;
+	camStateHist.push_back(camStateTemp);
+	capTimeHist.push_back(time);
+	if (camStateHist.size() > NUMLSINIT){
+		camStateHist.erase(camStateHist.begin());
+	}
+	if (capTimeHist.size() > NUMLSINIT){
+		capTimeHist.erase(capTimeHist.begin());
+	}
+	//for (int i = 0; i < capTimeHist.size(); i++){
+	//	std::cout << capTimeHist[i] << "\t";
+	//}
+	//std::cout << std::endl;
+
+	// Estimate fp position
+	fpMode.clear();
+	for (int i = 0; i < fp2dHist.size(); i++){
+		if (fp2dHist[i].size()<NUMLSINIT+10000){
+			fpMode.push_back(INIT);
+			//EstimateLSm(fp2dHist[i], stateHist);
+		}
+		/*
+		else if (fp2dHist[i].size()<NUMLSINIT + 1){
+			fpMode.push_back(RLS);
+		}
+		else if (fp2dHist[i].size() >= NUMLSINIT + 1){
+			fpMode.push_back(EKF);
+		}
+		else{
+			fpState.push_back(NONE);
+		}
+		*/
+	}
+	/*
+	for (int i = 0; i < fpState.size(); i++){
+	std::cout << fpState[i] << "\t";
+	}
+	std::cout << std::endl;
+	*/
+}
+
 
 void EstimateMap::EstimateRLS(){
 
@@ -281,29 +407,6 @@ void EstimateMap::setCameraIntrinsic(MatrixXd receivedData){
 }
 
 
-void EstimateMap::decideFpState(){
-	fpState.clear();
-	for (int i = 0; i < fp2dHist.size(); i++){
-		if (fp2dHist[i].size()<NUMLSINIT){
-			fpState.push_back(INIT);
-		}
-		else if (fp2dHist[i].size()<NUMLSINIT + 1){
-			fpState.push_back(RLS);
-		}
-		else if (fp2dHist[i].size()>=NUMLSINIT + 1){
-			fpState.push_back(EKF);
-		}
-		else{
-			fpState.push_back(NONE);
-		}
-	}
-	/*
-	for (int i = 0; i < fpState.size(); i++){
-		std::cout << fpState[i] << "\t";
-	}
-	std::cout << std::endl;
-	*/
-}
 
 void EstimateMap::DrawFp(cv::Mat img){
 	int radius = cvRound(5);
@@ -311,7 +414,7 @@ void EstimateMap::DrawFp(cv::Mat img){
 	for (int i = 0; i < fpLS.size(); i++){
 		cv::circle(img, fpLS[i], radius, cv::Scalar(255, 0, 255));
 	}
-	//cv::drawKeypoints(img, fpLS2, img, cv::Scalar(0, 0, 255));
+
 }
 
 
@@ -322,6 +425,18 @@ void EstimateMap::DrawTracking(cv::Mat img){
 			cv::line(img, fpPreLS[i], fpLS[i], cv::Scalar(0, 0, 255));
 		}
 	}
+#ifdef DENSE_OPTFLOW
+	for (size_t i = 0; i<fpPreLS.size(); i++){
+		if (optflowStatus[i]){
+			cv::line(img, fpPreLS[i], fpLS2[i], cv::Scalar(222, 0, 0));
+		}
+	}
+	cv::Mat visual_flow;
+	//visualizeFarnebackFlow(optfImg, visual_flow);
+	//std::cout << optfImg.size() << std::endl;
+	//if (!visual_flow.empty())
+	//	cv::imshow("DenseOptFlow", visual_flow);
+#endif
 }
 
 

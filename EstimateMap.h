@@ -28,9 +28,9 @@ using namespace Eigen;
 #define MAXMANAGEDFP 600
 
 #define GOOD_FEATURE
-//#define AGAST
+#define AGAST_FEATURE
 
-enum FpState{
+enum FpMode{
 	INIT,
 	RLS,
 	EKF,
@@ -48,6 +48,11 @@ typedef struct Fp3D{
 	int color[3];	// R G B
 }Fp3D;
 
+typedef struct CamState{
+	Vector3d pos;
+	Quaterniond quat;
+}CamState;
+
 class EstimateMap{
 private:
 	// Define Mode(Euler / Quaternion)
@@ -62,6 +67,10 @@ private:
 
 	std::vector<uchar> optflowStatus;	// optical flow status
 
+	// Camera State History
+	std::vector<CamState> camStateHist;
+	std::vector<double>   capTimeHist;
+
 	// function
 	MatrixXd createRotationMatrix(VectorXd state);
 	void detectFp(cv::Mat img);
@@ -70,8 +79,8 @@ public:
 	EstimateMap();
 	~EstimateMap();
 
-	// Feature point tracking History
-	std::vector<int> fpState;
+	// Feature point tracking History (LS / RLS / EKF / FIN)
+	std::vector<int> fpMode;
 
 	// Output variables
 	Eigen::Matrix3d R_5pt;
@@ -81,7 +90,10 @@ public:
 	std::vector<cv::Point2f> fpLS, fpRLS, fpEKF;
 	std::vector<cv::Point2f> fpPreLS;
 	std::vector<std::vector<cv::Point2f>> fp2dHist;	// 2D feature point History
-	std::vector<cv::KeyPoint> fpLS2;
+#ifdef DENSE_OPTFLOW
+	std::vector<cv::Point2f> fpLS2;
+	cv::Mat optfImg;
+#endif
 
 	// variables for Maping
 	std::vector<Fp3D> fp3DRLS;		// 3D feature point during Recursive Least Square
@@ -90,14 +102,13 @@ public:
 	std::vector<cv::Mat> fpProbEKF;	// Probability matrix of feature point during EKF
 	std::vector<Fp3D> fp3DFix;		// 3D feature point during EKF
 	std::vector<cv::Mat> fpProbFix;	// Probability matrix of feature point after EKF
-	std::vector<VectorXd> posHist;	// Vehicle position History
 
 	// function for feature management
 	void TrackingAndDetectFp(cv::Mat);
 
 	// functions for mapping
 	void EstimateLS2(std::vector<cv::Point2f> preFp, std::vector<cv::Point2f> curFp, VectorXd prePos, VectorXd preOri, VectorXd curPos, VectorXd curOri);
-	void EstimateLSm(std::vector<std::vector<cv::Point2f>> fp2DInit, std::vector<VectorXd> stateHist);
+	void EstimateLSm(std::vector<cv::Point2f> fp2DHist, std::vector<VectorXd> stateHist);
 	void EstimateRLS();
 	void EstimateNpt();	// Estimate probability of N point for trajectory generation
 
@@ -105,7 +116,10 @@ public:
 	void erase3DEKF(int);	// to keep the sonsitency with 2d tracking
 
 	void setCameraIntrinsic(MatrixXd receivedData);
-	void decideFpState();
+	void estimateFpState(Vector3d pos, Quaterniond rot, double time);
+
+	// Utility
+
 
 	// functions for drawing results
 	void DrawFp(cv::Mat img);

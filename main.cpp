@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 
 		// ----------------------------------------------------------
 		// Sparse Visual Tracking SLAM
-		svtSlam.update();
+		svtSlam.update(time);
 
 
 		// ----------------------------------------------------------
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 			int x = int(svtSlam.estimateState.pos(0)) + 300;
 			int y = int(svtSlam.estimateState.pos(2)) + 100;
 			cv::circle(traj, cv::Point(x, y), 1, CV_RGB(0, 0, 255), 1);
-			std::cout << x << "\t" << y << std::endl;
+			//std::cout << x << "\t" << y << std::endl;
 		}
 		double posErr = computeError(truePos, svtSlam.state.block(0,0,3,1));
 		//std::cout << "PosErr" << posErr << std::endl;
@@ -105,7 +105,9 @@ int main(int argc, char** argv)
 
 		// DrawImage
 		cv::imshow("CapImage", capImage);
-		cv::imshow("Map", traj); 
+		cv::imshow("Map", traj);
+		//if (id>10)
+		//	cv::imshow("DenseOptFlow", svtSlam.estimateMap.optfImg);
 		cv::waitKey(1);
 
 		id++;

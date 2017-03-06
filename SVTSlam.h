@@ -50,7 +50,7 @@ public:
 	void setImage(cv::Mat);
 	void setIMU(ImuData);
 	void setGPS(VectorXd);
-	void update();
+	void update(double);
 
 	// tempcode
 	MatrixXd pose;
